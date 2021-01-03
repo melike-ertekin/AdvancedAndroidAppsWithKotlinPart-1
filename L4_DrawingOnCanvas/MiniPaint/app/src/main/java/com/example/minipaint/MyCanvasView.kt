@@ -11,8 +11,11 @@ private const val STROKE_WIDTH = 12f // has to be float
 
 class MyCanvasView(context: Context) : View(context) {
 
-    private lateinit var extraCanvas: Canvas
-    private lateinit var extraBitmap: Bitmap
+    // Path representing the drawing so far
+    private val drawing = Path()
+
+    // Path representing what's currently being drawn
+    private val curPath = Path()
 
     private val backgroundColor = ResourcesCompat.getColor(resources, R.color.colorBackground, null)
 
@@ -47,15 +50,6 @@ class MyCanvasView(context: Context) : View(context) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
 
 
-        //Looking at onSizeChanged(), a new bitmap and canvas are created every time the function executes.
-        // You need a new bitmap, because the size has changed. However, this is a memory leak, leaving the old bitmaps around.
-        // To fix this, recycle extraBitmap before creating the next one.
-        if (::extraBitmap.isInitialized) extraBitmap.recycle()
-
-        extraBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        extraCanvas = Canvas(extraBitmap)
-        extraCanvas.drawColor(backgroundColor)
-
         // Calculate a rectangular frame around the picture.
         val inset = 40
         frame = Rect(inset, inset, width - inset, height - inset)
@@ -65,9 +59,11 @@ class MyCanvasView(context: Context) : View(context) {
     //The 2D coordinate system used for drawing on a Canvas is in pixels, and the origin (0,0) is at the top left corner of the Canvas.
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawBitmap(extraBitmap, 0f, 0f, null)
-
-        // Draw a frame around the canvas.
+        // Draw the drawing so far
+        canvas.drawPath(drawing, paint)
+        // Draw any current squiggle
+        canvas.drawPath(curPath, paint)
+        // Draw a frame around the canvas
         canvas.drawRect(frame, paint)
     }
 
@@ -99,14 +95,17 @@ class MyCanvasView(context: Context) : View(context) {
             path.quadTo(currentX, currentY, (motionTouchEventX + currentX) / 2, (motionTouchEventY + currentY) / 2)
             currentX = motionTouchEventX
             currentY = motionTouchEventY
-            // Draw the path in the extra bitmap to cache it.
-            extraCanvas.drawPath(path, paint)
+
+            // Add the current path to the drawing so far
+            drawing.addPath(path)
         }
         invalidate()
     }
 
     private fun touchUp() {
-        // Reset the path so it doesn't get drawn again.
-        path.reset()
+        // Add the current path to the drawing so far
+        drawing.addPath(curPath)
+        // Rewind the current path for the next touch
+        curPath.reset()
     }
 }
